@@ -6,15 +6,20 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Imports for Routing and Security
+// Imports for Routing and Security (EXISTING)
 const getHabitController = require('./controllers/habitController');
 const habitRoutes = require('./routes/habitRoutes');
 const verifyToken = require('./middleware/verifyToken'); 
 
+// 👇 NEW IMPORTS FOR USER AUTH
+const getUserController = require('./controllers/userController'); 
+const userRoutes = require('./routes/userRoutes'); 
+// 👆 NEW IMPORTS FOR USER AUTH
+
 // --- Middlewares ---
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'], 
-    credentials: true,
+    origin: ['http://localhost:5173', 'http://localhost:3000'], 
+    credentials: true,
 }));
 app.use(express.json());
 
@@ -23,68 +28,79 @@ const uri = "mongodb+srv://habitTrackerUser:tSi1QuLmXNQpfDtg@clusterhabittracker
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
 });
 
 app.get('/', (req, res) => {
-    res.send('Habit Tracker Server is running');
+    res.send('Habit Tracker Server is running');
 })
 
 async function run() {
-    try {
-        await client.connect()
-        // Database and Collection Initialization
-        const db = client.db("habitTracker"); 
-        const habitsCollection = db.collection("habits");
-
-        // Instantiate the controller factory, passing the collection dependency
-        const habitController = getHabitController(habitsCollection);
-
-        // ----------------------------------------------------
-        // Define API Routes
-        // ----------------------------------------------------
+    try {
+        await client.connect()
+        // Database and Collection Initialization
+        const db = client.db("habitTracker"); 
         
-        // PUBLIC ROUTES (No verifyToken middleware)
-        habitRoutes.get('/featured', habitController.getFeaturedHabits);
-        habitRoutes.get('/public', habitController.getPublicHabits); 
+        // ========================================================
+        // 👇 NEW USER SETUP
+        // ========================================================
+        const usersCollection = db.collection("users"); 
+        const userController = getUserController(usersCollection); 
 
-        // PRIVATE ROUTES (Secured by verifyToken middleware)
+        // Define the route to save user data after successful Firebase auth
+        userRoutes.post('/register-success', userController.createUserInDB); 
         
-        // Create Habit
-        habitRoutes.post('/', verifyToken, habitController.createHabit);
-        
-        // My Habits
-        habitRoutes.get('/my', verifyToken, habitController.getMyHabits);
-
-        // Habit Detail, Update, Delete (Uses the /:id parameter)
-        habitRoutes.route('/:id')
-            .get(verifyToken, habitController.getHabitDetail)  // GET /api/v1/habits/:id
-            .patch(verifyToken, habitController.updateHabit)  // PATCH /api/v1/habits/:id
-            .delete(verifyToken, habitController.deleteHabit); // DELETE /api/v1/habits/:id
-
-        // Complete Habit Action
-        habitRoutes.patch('/:id/complete', 
-            verifyToken, 
-            habitController.completeHabit
-        );
+        // Attach the user router middleware
+        app.use('/api/v1/users', userRoutes); 
+        // ========================================================
 
 
-        // Attach the router middleware to the Express app
-        app.use('/api/v1/habits', habitRoutes);
+        // EXISTING HABIT SETUP
+        const habitsCollection = db.collection("habits");
 
-        await client.db("admin").command({ ping: 1 })
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    }
-    finally {
-        // Keeps the database connection open for the server life cycle
-    }
+        // Instantiate the controller factory, passing the collection dependency
+        const habitController = getHabitController(habitsCollection);
+
+        // ----------------------------------------------------
+        // Define API Routes (EXISTING)
+        // ----------------------------------------------------
+        
+        // PUBLIC ROUTES 
+        habitRoutes.get('/featured', habitController.getFeaturedHabits);
+        habitRoutes.get('/public', habitController.getPublicHabits); 
+
+        // PRIVATE ROUTES 
+        habitRoutes.post('/', verifyToken, habitController.createHabit);
+        habitRoutes.get('/my', verifyToken, habitController.getMyHabits);
+
+        // Habit Detail, Update, Delete
+        habitRoutes.route('/:id')
+            .get(verifyToken, habitController.getHabitDetail)
+            .patch(verifyToken, habitController.updateHabit)
+            .delete(verifyToken, habitController.deleteHabit);
+
+        // Complete Habit Action
+        habitRoutes.patch('/:id/complete', 
+            verifyToken, 
+            habitController.completeHabit
+        );
+
+        // Attach the habit router middleware to the Express app
+        app.use('/api/v1/habits', habitRoutes);
+
+        await client.db("admin").command({ ping: 1 })
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    }
+    finally {
+        // Keeps the database connection open for the server life cycle
+    }
 }
 run().catch(console.dir)
 
 app.listen(port, () => {
-    console.log(`Server is running on port: ${port}`);
+    console.log(`Server is running on port: ${port}`);
 })
