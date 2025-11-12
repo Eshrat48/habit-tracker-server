@@ -3,3 +3,6 @@
 
 # Environment variables
 .env
+
+# Firebase and API keys
+config/firebase-key.json
