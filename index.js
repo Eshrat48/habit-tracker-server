@@ -6,19 +6,19 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 🚩 NEW IMPORTS: Import the controller factory and the router instance
+// 🚩 Imports for Routing and Security
 const getHabitController = require('./controllers/habitController');
 const habitRoutes = require('./routes/habitRoutes');
-const verifyToken = require('./middleware/verifyToken'); // 🚩 verifyToken should now be available
+const verifyToken = require('./middleware/verifyToken'); 
 
 // --- Middlewares ---
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'], // Allow your client app access
+    origin: ['http://localhost:5173', 'http://localhost:3000'], 
     credentials: true,
 }));
 app.use(express.json());
 
-// uri connection
+// uri connection (using hardcoded URI)
 const uri = "mongodb+srv://habitTrackerUser:tSi1QuLmXNQpfDtg@clusterhabittracker.seeef5c.mongodb.net/habitTracker?retryWrites=true&w=majority&appName=ClusterHabitTracker";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -37,7 +37,7 @@ app.get('/', (req, res) => {
 async function run() {
     try {
         await client.connect()
-        // 🚩 Database and Collection Initialization
+        // Database and Collection Initialization
         const db = client.db("habitTracker"); 
         const habitsCollection = db.collection("habits");
 
@@ -45,19 +45,19 @@ async function run() {
         const habitController = getHabitController(habitsCollection);
 
         // ----------------------------------------------------
-        // 🚩 Define API Routes (inside the run function)
+        // Define API Routes
         // ----------------------------------------------------
         
         // PUBLIC ROUTES
         habitRoutes.get('/featured', habitController.getFeaturedHabits);
+        habitRoutes.get('/public', habitController.getPublicHabits); // Browse Public Habits
 
         // PRIVATE ROUTES (Secured by verifyToken)
         habitRoutes.post('/', 
-            verifyToken, // 🚩 UNCOMMENTED: The route is now secured!
+            verifyToken, 
             habitController.createHabit
         );
         
-        // FUTURE: My Habits Route (also private)
         habitRoutes.get('/my', 
             verifyToken, 
             habitController.getMyHabits
@@ -71,7 +71,7 @@ async function run() {
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     }
     finally {
-        // ...
+        // Keeps the database connection open for the server life cycle
     }
 }
 run().catch(console.dir)
