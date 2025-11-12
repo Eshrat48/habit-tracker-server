@@ -6,7 +6,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 🚩 Imports for Routing and Security
+// Imports for Routing and Security
 const getHabitController = require('./controllers/habitController');
 const habitRoutes = require('./routes/habitRoutes');
 const verifyToken = require('./middleware/verifyToken'); 
@@ -48,19 +48,28 @@ async function run() {
         // Define API Routes
         // ----------------------------------------------------
         
-        // PUBLIC ROUTES
+        // PUBLIC ROUTES (No verifyToken middleware)
         habitRoutes.get('/featured', habitController.getFeaturedHabits);
-        habitRoutes.get('/public', habitController.getPublicHabits); // Browse Public Habits
+        habitRoutes.get('/public', habitController.getPublicHabits); 
 
-        // PRIVATE ROUTES (Secured by verifyToken)
-        habitRoutes.post('/', 
-            verifyToken, 
-            habitController.createHabit
-        );
+        // PRIVATE ROUTES (Secured by verifyToken middleware)
         
-        habitRoutes.get('/my', 
+        // Create Habit
+        habitRoutes.post('/', verifyToken, habitController.createHabit);
+        
+        // My Habits
+        habitRoutes.get('/my', verifyToken, habitController.getMyHabits);
+
+        // Habit Detail, Update, Delete (Uses the /:id parameter)
+        habitRoutes.route('/:id')
+            .get(verifyToken, habitController.getHabitDetail)  // GET /api/v1/habits/:id
+            .patch(verifyToken, habitController.updateHabit)  // PATCH /api/v1/habits/:id
+            .delete(verifyToken, habitController.deleteHabit); // DELETE /api/v1/habits/:id
+
+        // Complete Habit Action
+        habitRoutes.patch('/:id/complete', 
             verifyToken, 
-            habitController.getMyHabits
+            habitController.completeHabit
         );
 
 
