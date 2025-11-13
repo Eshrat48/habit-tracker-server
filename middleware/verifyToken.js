@@ -1,26 +1,34 @@
 // middleware/verifyToken.js
 
 const admin = require('firebase-admin');
-const path = require('path');
 
-// 🚩 Initialize Firebase Admin SDK (using the local key file)
+// ⚠️ FIX: Initialize Firebase Admin SDK (using Vercel Environment Variable)
 try {
-    // Determine the path to your key file
-    const serviceAccountPath = path.resolve(__dirname, '../config/firebase-key.json');
+    // 1. Read the JSON string from the Vercel environment variable
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+
+    if (!serviceAccountJson) {
+        throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.");
+    }
     
-    const serviceAccount = require(serviceAccountPath);
+    // 2. Parse the JSON string into a JavaScript object
+    const serviceAccount = JSON.parse(serviceAccountJson);
     
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
-    console.log('🔒 Firebase Admin SDK initialized successfully.');
+    console.log('🔒 Firebase Admin SDK initialized successfully from Vercel ENV.');
+
 } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin SDK. Check key file path/contents:', error.message);
-    // Note: If this fails, the server will continue, but private routes will break.
+    // This will catch the error if the key is missing or malformed JSON
+    console.error('❌ CRITICAL ERROR: Failed to initialize Firebase Admin SDK. Check the Vercel Environment Variable "FIREBASE_SERVICE_ACCOUNT_KEY".', error.message);
+    // Since the Admin SDK failed to initialize, no private routes will work.
 }
 
 
 const verifyToken = async (req, res, next) => {
+// ... The rest of the verifyToken function remains UNCHANGED
+
     // 1. Check for token
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -39,7 +47,7 @@ const verifyToken = async (req, res, next) => {
         
         // 4. Attach user data to the request
         req.userEmail = decodedToken.email;
-        req.userName = decodedToken.name || decodedToken.email.split('@')[0]; // Fallback for name
+        req.userName = decodedToken.name || decodedToken.email.split('@')[0];
         req.userId = decodedToken.uid; 
 
         // 5. Proceed to the next controller/middleware
